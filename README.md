@@ -1,6 +1,6 @@
 # iPhone Mirror Windows
 
-Обёртка для **Bezel** (или Reflector / LonelyScreen), которая делает окно зеркалирования iPhone:
+Обёртка для **MirrorDrop** (и других AirPlay-ресиверов), которая делает окно зеркалирования iPhone на Windows:
 - **Без рамки** (frameless)
 - **Всегда поверх окон** (always-on-top)
 - **Перетаскиваемое** за любую область
@@ -12,24 +12,29 @@
 
 ## 🚀 Быстрый старт
 
-1. **Установите Bezel** (бесплатно, open source):
-   - Скачайте: https://github.com/bezelapp/bezel/releases
-   - Запустите `Bezel-Setup-x.x.x.exe`
+1. **Установите MirrorDrop** (бесплатно, open source, **рекомендуется для Windows**):
+   - Скачайте: https://mirrordrop.app/windows → **Download for Windows**
+   - Запустите `MirrorDrop.exe` (установка не требуется)
 
-2. **Запустите Bezel** и подключите iPhone:
-   - На iPhone: «Экран» → «Bezel» (или «AirPlay» → «Bezel»)
-   - Экран iPhone появится в окне Bezel
+   **Альтернативы** (если MirrorDrop не заработал):
+   - **AirPlay-Windows**: https://github.com/Thomas-lab17/AirPlay-Windows/releases
+   - **AirPlay-Receiver**: https://github.com/ZC635/AirPlay-Receiver/releases
+   - **Reflector 4** (платный, триал 7 дней): https://www.airsquirrels.com/reflector/
+
+2. **Запустите MirrorDrop** и подключите iPhone:
+   - На iPhone: «Экран» → «MirrorDrop» (или «AirPlay» → «MirrorDrop»)
+   - Экран iPhone появится в окне MirrorDrop
 
 3. **Установите этот .msi** (скачанный из Actions)
    - В трее появится иконка 📱
 
 4. **Настройте** (правый клик на иконке → «Настройки…»):
-   - **Ресивер**: Bezel (по умолчанию)
+   - **Ресивер**: **MirrorDrop** (по умолчанию)
    - **Размер окна**: 400×720 (под iPhone 14/15/16) или ваш
    - ✅ **Автозапуск с Windows**
    - ✅ **Показывать при запуске**
 
-5. **Готово!** Окно Bezel теперь:
+5. **Готово!** Окно MirrorDrop теперь:
    - Без заголовка и рамок
    - Всегда поверх других окон
    - Перетаскивается за любое место (как виджет)
@@ -58,18 +63,23 @@ cargo tauri build
 
 ## 🔧 Поддерживаемые ресиверы
 
-| Ресивер | Цена | Класс окна | Статус |
-|---------|------|------------|--------|
-| **Bezel** | Бесплатно | `Chrome_WidgetWin_1` | ✅ Основной |
-| Reflector 4 | Платный ($19.99) | `ReflectorWindowClass` | ✅ Работает |
-| LonelyScreen | Бесплатно (устарел) | `LonelyScreenWindowClass` | ⚠️ Ограниченно |
+| Ресивер | Цена | Статус | Скачать |
+|---------|------|--------|---------|
+| **MirrorDrop** | Бесплатно | ✅ **Основной (Windows)** | [mirrordrop.app/windows](https://mirrordrop.app/windows) |
+| **AirPlay-Windows** | Бесплатно (GPLv3) | ✅ Альтернатива | [GitHub Releases](https://github.com/Thomas-lab17/AirPlay-Windows/releases) |
+| **AirPlay-Receiver** | Бесплатно (GPLv3) | ✅ Альтернатива | [GitHub Releases](https://github.com/ZC635/AirPlay-Receiver/releases) |
+| **Reflector 4** | Платный ($19.99) | ✅ Работает | [airsquirrels.com](https://www.airsquirrels.com/reflector/) |
+| **LonelyScreen** | Бесплатно | ⚠️ Устарел | [lonely-screen.com](https://www.lonely-screen.com/) |
+
+> **Важно:** Bezel работает **только на macOS**. На Windows используйте MirrorDrop или альтернативы выше.
 
 ## 🐛 Решение проблем
 
 **Окно не находится?**
-1. Убедитесь, что Bezel **запущен** и iPhone **активно зеркалируется**
+1. Убедитесь, что MirrorDrop **запущен** и iPhone **активно зеркалируется**
 2. В настройках нажмите **«Проверить доступность»**
-3. Перезапустите Bezel, затем это приложение
+3. Перезапустите MirrorDrop, затем это приложение
+4. Попробуйте другой ресивер в настройках (AirPlay-Windows / AirPlay-Receiver)
 
 **Окно мерцает / не перетаскивается?**
 - Перезапустите приложение (правый клик → Выход → запустите снова)
