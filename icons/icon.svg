@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e6a01e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#d48c1a;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect x="16" y="8" width="96" height="112" rx="16" fill="url(#grad)"/>
+  <rect x="24" y="16" width="80" height="96" rx="8" fill="#1a1a18"/>
+  <rect x="54" y="4" width="20" height="6" rx="3" fill="#333"/>
+  <circle cx="64" cy="110" r="6" fill="#333"/>
+</svg>

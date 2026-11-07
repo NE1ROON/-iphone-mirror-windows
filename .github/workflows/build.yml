@@ -1,0 +1,20 @@
+name: Build MSI
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli
+      - name: Build
+        run: cargo tauri build
+      - name: Upload MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: iphone-mirror-windows-msi
+          path: src-tauri/target/release/bundle/msi/*.msi
