@@ -26,44 +26,86 @@ use windows::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ReceiverType {
+    MirrorDrop,
     Bezel,
     Reflector,
     LonelyScreen,
+    AirPlayWindows,
+    AirPlayReceiver,
 }
 
 impl Default for ReceiverType {
     fn default() -> Self {
-        Self::Bezel
+        Self::MirrorDrop
     }
 }
 
 impl ReceiverType {
-    pub fn window_class(&self) -> &'static str {
+    /// Возможные классы окон для каждого ресивера (проверяются по очереди)
+    pub fn window_classes(&self) -> &'static [&'static str] {
         match self {
-            Self::Bezel => "Chrome_WidgetWin_1", // Bezel на Electron
-            Self::Reflector => "ReflectorWindowClass", // Reflector 4
-            Self::LonelyScreen => "LonelyScreenWindowClass",
+            // MirrorDrop — нативное Windows приложение, класс может варьироваться
+            Self::MirrorDrop => &[
+                "MirrorDropWindow",      // предполагаемый класс
+                "MirrorDrop",            // альтернатива
+                "Windows.UI.Core.CoreWindow", // UWP/WinUI 3
+                "Chrome_WidgetWin_1",    // если на Electron
+            ],
+            // Bezel — только macOS, но на случай если запустят через виртуалку/эмулятор
+            Self::Bezel => &["Chrome_WidgetWin_1"],
+            // Reflector 4
+            Self::Reflector => &["ReflectorWindowClass", "Chrome_WidgetWin_1"],
+            // LonelyScreen
+            Self::LonelyScreen => &["LonelyScreenWindowClass"],
+            // AirPlay-Windows (Thomas-lab17)
+            Self::AirPlayWindows => &["AirPlayReceiverWindow", "Chrome_WidgetWin_1", "Windows.UI.Core.CoreWindow"],
+            // AirPlay-Receiver (ZC635)
+            Self::AirPlayReceiver => &["AirPlayReceiverWindow", "Chrome_WidgetWin_1"],
         }
     }
 
-    pub fn process_name(&self) -> &'static str {
+    pub fn process_names(&self) -> &'static [&'static str] {
         match self {
-            Self::Bezel => "Bezel.exe",
-            Self::Reflector => "Reflector 4.exe",
-            Self::LonelyScreen => "LonelyScreen.exe",
+            Self::MirrorDrop => &["MirrorDrop.exe", "mirrordrop.exe"],
+            Self::Bezel => &["Bezel.exe"],
+            Self::Reflector => &["Reflector 4.exe", "Reflector.exe"],
+            Self::LonelyScreen => &["LonelyScreen.exe"],
+            Self::AirPlayWindows => &["AirPlayReceiver.exe", "AirPlay-Windows.exe"],
+            Self::AirPlayReceiver => &["AirPlayReceiver.exe"],
         }
     }
 
     pub fn display_name(&self) -> &'static str {
         match self {
-            Self::Bezel => "Bezel (бесплатно, open source)",
+            Self::MirrorDrop => "MirrorDrop (бесплатно, open source, рекомендуется)",
+            Self::Bezel => "Bezel (только macOS)",
             Self::Reflector => "Reflector 4 (платный, триал 7 дней)",
             Self::LonelyScreen => "LonelyScreen (бесплатно, устарел)",
+            Self::AirPlayWindows => "AirPlay-Windows (бесплатно, open source)",
+            Self::AirPlayReceiver => "AirPlay-Receiver (бесплатно, open source)",
+        }
+    }
+
+    pub fn download_url(&self) -> &'static str {
+        match self {
+            Self::MirrorDrop => "https://mirrordrop.app/windows",
+            Self::Bezel => "https://nonstrict.eu/bezel/",
+            Self::Reflector => "https://www.airsquirrels.com/reflector/",
+            Self::LonelyScreen => "https://www.lonely-screen.com/",
+            Self::AirPlayWindows => "https://github.com/Thomas-lab17/AirPlay-Windows/releases",
+            Self::AirPlayReceiver => "https://github.com/ZC635/AirPlay-Receiver/releases",
         }
     }
 
     pub fn all() -> Vec<Self> {
-        vec![Self::Bezel, Self::Reflector, Self::LonelyScreen]
+        vec![
+            Self::MirrorDrop,
+            Self::AirPlayWindows,
+            Self::AirPlayReceiver,
+            Self::Reflector,
+            Self::LonelyScreen,
+            Self::Bezel,
+        ]
     }
 }
 
@@ -71,8 +113,9 @@ impl ReceiverType {
 pub struct ReceiverConfig {
     pub r#type: ReceiverType,
     pub display_name: String,
-    pub process_name: String,
-    pub window_class: String,
+    pub process_names: Vec<String>,
+    pub window_classes: Vec<String>,
+    pub download_url: String,
 }
 
 impl ReceiverConfig {
@@ -81,8 +124,9 @@ impl ReceiverConfig {
             .into_iter()
             .map(|t| Self {
                 display_name: t.display_name().to_string(),
-                process_name: t.process_name().to_string(),
-                window_class: t.window_class().to_string(),
+                process_names: t.process_names().iter().map(|s| s.to_string()).collect(),
+                window_classes: t.window_classes().iter().map(|s| s.to_string()).collect(),
+                download_url: t.download_url().to_string(),
                 r#type: t,
             })
             .collect()
@@ -111,7 +155,6 @@ impl MirrorWindowManager {
     }
 
     pub fn new_test(receiver: ReceiverType) -> Self {
-        // Для теста создаём заглушку без app handle
         use tauri::test::mock_app;
         Self {
             app: mock_app(),
@@ -127,13 +170,10 @@ impl MirrorWindowManager {
         *self.target_hwnd.lock().unwrap() = None;
     }
 
-    /// Запускает мониторинг окна (вызывается при старте)
     pub fn start_monitoring(&self) {
-        // Первичный поиск
         let _ = self.find_and_style_window();
     }
 
-    /// Основная функция: находит окно ресивера и применяет стили
     pub fn ensure_window_style(&self) -> Result<(), String> {
         self.find_and_style_window()
     }
@@ -141,16 +181,14 @@ impl MirrorWindowManager {
     fn find_and_style_window(&self) -> Result<(), String> {
         let hwnd = self.find_receiver_window()?;
         if hwnd.0 == 0 {
-            return Ok(()); // Окно ещё не создано
+            return Ok(());
         }
 
-        // Проверяем, не обрабатывали ли уже это окно
         let mut target = self.target_hwnd.lock().unwrap();
         if *target == Some(hwnd) {
             return Ok(());
         }
 
-        // Сохраняем оригинальные стили
         unsafe {
             let style = GetWindowLongPtrW(hwnd, GWL_STYLE) as i32;
             let ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as i32;
@@ -158,14 +196,13 @@ impl MirrorWindowManager {
             *self.original_style.lock().unwrap() = Some(style);
             *self.original_ex_style.lock().unwrap() = Some(ex_style);
 
-            // Применяем новые стили
+            // Применяем новые стили: frameless, always-on-top, toolwindow (не в таскбаре)
             let new_ex_style = WS_EX_TOPMOST.0 | WS_EX_LAYERED.0 | WS_EX_TOOLWINDOW.0;
             let new_style = WS_POPUP.0 | WS_VISIBLE.0;
 
             SetWindowLongPtrW(hwnd, GWL_EXSTYLE, new_ex_style as isize);
             SetWindowLongPtrW(hwnd, GWL_STYLE, new_style as isize);
 
-            // Принудительно обновляем окно
             SetWindowPos(
                 hwnd,
                 HWND_TOPMOST,
@@ -175,25 +212,92 @@ impl MirrorWindowManager {
         }
 
         *target = Some(hwnd);
-        info!("Styled mirror window: {:?}", hwnd);
+        info!("Styled mirror window: {:?} for receiver: {:?}", hwnd, self.receiver);
         Ok(())
     }
 
     fn find_receiver_window(&self) -> Result<HWND, String> {
         unsafe {
-            // Ищем по классу окна
-            let class_name: Vec<u16> = OsStr::new(self.receiver.window_class()).encode_wide().chain(Some(0)).collect();
-            let mut hwnd = FindWindowW(None, None);
-            while hwnd.0 != 0 {
-                let mut buf = [0u16; 256];
-                let len = GetClassNameW(hwnd, &mut buf);
-                if len > 0 && &buf[..len as usize] == &class_name[..class_name.len()-1] {
-                    // Проверяем, что окно видимо и принадлежит нужному процессу
-                    if IsWindowVisible(hwnd).as_bool() {
-                        return Ok(hwnd);
+            // Сначала пробуем найти по классам окон
+            for class_name_str in self.receiver.window_classes() {
+                let class_name: Vec<u16> = OsStr::new(class_name_str).encode_wide().chain(Some(0)).collect();
+                let mut hwnd = FindWindowW(None, None);
+                while hwnd.0 != 0 {
+                    let mut buf = [0u16; 256];
+                    let len = GetClassNameW(hwnd, &mut buf);
+                    if len > 0 && &buf[..len as usize] == &class_name[..class_name.len()-1] {
+                        if IsWindowVisible(hwnd).as_bool() {
+                            // Дополнительная проверка: принадлежит ли окно нужному процессу
+                            if self.verify_process(hwnd) {
+                                return Ok(hwnd);
+                            }
+                        }
+                    }
+                    hwnd = FindWindowExW(None, Some(hwnd), None, None);
+                }
+            }
+
+            // Fallback: поиск по имени процесса (если класс не совпал)
+            self.find_by_process_name()
+        }
+    }
+
+    fn verify_process(&self, hwnd: HWND) -> bool {
+        unsafe {
+            let mut pid: u32 = 0;
+            windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId(hwnd, Some(&mut pid));
+            if pid == 0 {
+                return false;
+            }
+
+            if let Ok(process) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) {
+                let mut exe_path = [0u16; 260];
+                let len = GetModuleFileNameExW(process, None, &mut exe_path);
+                let _ = windows::Win32::Foundation::CloseHandle(process);
+                if len > 0 {
+                    let path_str = String::from_utf16_lossy(&exe_path[..len as usize]);
+                    let exe_name = std::path::Path::new(&path_str)
+                        .file_name()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("")
+                        .to_lowercase();
+
+                    for proc_name in self.receiver.process_names() {
+                        if exe_name == proc_name.to_lowercase() {
+                            return true;
+                        }
                     }
                 }
-                hwnd = FindWindowExW(None, Some(hwnd), None, None);
+            }
+            // Если не смогли проверить процесс, разрешаем (окно может быть от другого процесса с тем же классом)
+            true
+        }
+    }
+
+    fn find_by_process_name(&self) -> Result<HWND, String> {
+        unsafe {
+            for proc_name in self.receiver.process_names() {
+                let proc_name_wide: Vec<u16> = OsStr::new(proc_name).encode_wide().chain(Some(0)).collect();
+                // Используем CreateToolhelp32Snapshot для поиска процесса
+                // Но проще: ищем все окна и проверяем их процессы
+                let mut hwnd = FindWindowW(None, None);
+                while hwnd.0 != 0 {
+                    if IsWindowVisible(hwnd).as_bool() {
+                        if self.verify_process(hwnd) {
+                            // Дополнительно проверяем заголовок окна
+                            let mut title = [0u16; 256];
+                            let len = GetWindowTextW(hwnd, &mut title);
+                            if len > 0 {
+                                let title_str = String::from_utf16_lossy(&title[..len as usize]);
+                                // Исключаем служебные окна
+                                if !title_str.is_empty() && title_str.len() > 2 {
+                                    return Ok(hwnd);
+                                }
+                            }
+                        }
+                    }
+                    hwnd = FindWindowExW(None, Some(hwnd), None, None);
+                }
             }
         }
         Err("Window not found".into())
@@ -225,7 +329,6 @@ impl MirrorWindowManager {
         let _ = self.app.emit("mirror-window-state", serde_json::json!({ "visible": visible }));
     }
 
-    /// Восстанавливает оригинальные стили при выходе
     pub fn restore_original_style(&self) {
         if let Some(hwnd) = *self.target_hwnd.lock().unwrap() {
             if let (Some(style), Some(ex_style)) = (
