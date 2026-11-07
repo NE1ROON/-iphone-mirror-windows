@@ -5,9 +5,7 @@
   "identifier": "com.iphone-mirror.windows",
   "build": {
     "beforeDevCommand": "",
-    "beforeBuildCommand": "",
-    "devPath": "http://localhost:1420",
-    "distDir": "../dist"
+    "beforeBuildCommand": ""
   },
   "app": {
     "windows": [
@@ -44,7 +42,7 @@
       },
       "allowDowngrades": true
     },
-    "longDescription": "Wrapper for Bezel/Reflector to make iPhone mirroring window frameless, always-on-top, and draggable on Windows.",
+    "longDescription": "Wrapper for MirrorDrop/AirPlay receivers to make iPhone mirroring window frameless, always-on-top, and draggable on Windows.",
     "licenseFile": "LICENSE",
     "copyright": "MIT License"
   },
